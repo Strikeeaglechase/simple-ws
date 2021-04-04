@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"watch": true,
+		"target": "ES6",
+		"moduleResolution": "node",
+		"module": "esnext",
+		"allowSyntheticDefaultImports": true,
+		"outDir": "dist/",
+		"baseUrl": "./src",
+		"lib": ["ES2019"],
+		"declaration": true,
+	},
+	"include": ["src/"]
+}

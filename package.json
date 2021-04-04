@@ -1,0 +1,21 @@
+{
+	"name": "easy-ws",
+	"version": "1.0.0",
+	"description": "A simple websocket framework for server and client intended to be used on smaller simpler projects",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"author": "Strikeeaglechase",
+	"license": "ISC",
+	"dependencies": {
+		"uuid": "^8.3.2",
+		"ws": "^7.4.4"
+	},
+	"devDependencies": {
+		"@types/node": "^14.14.37",
+		"@types/ws": "^7.4.0"
+	}
+}
