@@ -1,5 +1,5 @@
 {
-	"name": "easy-ws",
+	"name": "strike-simple-ws",
 	"version": "1.0.0",
 	"description": "A simple websocket framework for server and client intended to be used on smaller simpler projects",
 	"type": "module",
@@ -10,6 +10,10 @@
 	},
 	"author": "Strikeeaglechase",
 	"license": "ISC",
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:Strikeeaglechase/simple-ws.git"
+	},
 	"dependencies": {
 		"uuid": "^8.3.2",
 		"ws": "^7.4.4"
