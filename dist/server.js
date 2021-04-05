@@ -47,7 +47,7 @@ class Client {
                 this._handlePacket(packet);
             }
             catch (e) {
-                console.log(`Unable to parse packet ${data} - ${e}`);
+                this.server.log.logger(`Unable to parse packet ${data} - ${e}`);
             }
         });
         this.socket.on("close", () => this.server.close(this.id));
@@ -67,9 +67,10 @@ class Client {
             if (this.ping.isAwaitingReply)
                 return;
             this.ping.isAwaitingReply = true;
-            const time = yield this.send({ event: 'heartbeat', time: Date.now() }, true).catch(() => { });
+            const message = { event: 'heartbeat', time: Date.now() };
+            const time = yield this.send(message, true).catch(() => { });
             if (!time) {
-                console.log(`Client ${this.id} timed out`);
+                this.server.log.logger(`Client ${this.id} timed out`);
                 this.server.close(this.id);
                 return;
             }
@@ -89,23 +90,37 @@ class Client {
             return handler.prom;
         }
     }
+    reply(orgPacket, replyData) {
+        const reply = {
+            event: "responce",
+            data: replyData,
+            orgPID: orgPacket.pID,
+        };
+        this.send(reply);
+    }
+    broadcast(packet, withReply = false) {
+        this.server.broadcast(this.id, packet, withReply);
+    }
     // Methods intended to be overriden by an extended class
     setupSocket() { }
     handlePacket(packet) { }
 }
 class Server {
-    constructor(port, ClientConstruct, packetLog) {
+    constructor(port, ClientConstruct, logOpts) {
         this.port = port;
         this.clients = [];
         this.ClientConstruct = ClientConstruct;
-        this.log = this.setupPacketLogger(packetLog);
+        this.log = this.setupPacketLogger(logOpts || {});
     }
-    setupPacketLogger(path) {
+    setupPacketLogger(opts) {
+        const logFunc = opts.logger || console.log;
+        const path = opts.path;
         if (!path) {
             return {
                 path: "",
                 file: null,
-                enabled: false
+                enabled: false,
+                logger: logFunc
             };
         }
         if (!fs.existsSync(path)) {
@@ -115,15 +130,16 @@ class Server {
         return {
             path: path,
             file: file,
-            enabled: true
+            enabled: true,
+            logger: logFunc
         };
     }
     init() {
         this.wss = new WebSocket.Server({ port: this.port });
         this.wss.on("connection", (ws) => this.makeConnection(ws));
-        this.wss.on("error", (err) => console.log(err));
-        this.wss.on("close", () => console.log(`Websocket server closed!`));
-        this.wss.on("listening", () => console.log(`Webscoket server open on ${this.port}`));
+        this.wss.on("error", (err) => this.log.logger(err.toString()));
+        this.wss.on("close", () => this.log.logger(`Websocket server closed!`));
+        this.wss.on("listening", () => this.log.logger(`Webscoket server open on ${this.port}`));
     }
     makeConnection(ws) {
         const client = new this.ClientConstruct(this, ws);
@@ -148,5 +164,20 @@ class Server {
         }
         this.clients = this.clients.filter(c => c.id != clientID);
     }
+    broadcast(clientID, packet, withReply) {
+        if (!withReply) {
+            this.clients.forEach(client => {
+                if (client.id != clientID)
+                    client.send(packet, false);
+            });
+        }
+        else {
+            const replyProms = this.clients.map(client => {
+                if (client.id != clientID)
+                    return client.send(packet, true);
+            });
+            return replyProms.filter(v => v != null);
+        }
+    }
 }
-export { Server };
+export { Server, Client };

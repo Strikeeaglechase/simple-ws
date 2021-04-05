@@ -1,11 +1,11 @@
-import { Packet, Responce } from "./index";
+import { Packet, Responce, PacketBase } from "./server";
 import ReplyHandler from "./replyHandler.js";
 
 import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
 type uuidv4 = () => string;
 
-class WebSocketClient {
+class Client {
 	socket: WebSocket;
 	url: string;
 	awaitingReplys: Array<ReplyHandler>;
@@ -15,9 +15,9 @@ class WebSocketClient {
 	}
 	connect() {
 		this.socket = new WebSocket(this.url);
-		this.setupSocket();
+		this._setupSocket();
 	}
-	setupSocket() {
+	_setupSocket() {
 		this.socket.on("close", () => {
 			console.log(`Websocket closed, attempting to reopen`);
 			setTimeout(() => this.connect(), 500);
@@ -34,6 +34,7 @@ class WebSocketClient {
 				console.log(`Unable to parse packet ${data} - ${e}`);
 			}
 		});
+		this.setupSocket();
 	}
 	_handlePacket(packet: Packet) {
 		switch (packet.event) {
@@ -42,10 +43,11 @@ class WebSocketClient {
 				break;
 			case "heartbeat":
 				this.reply(packet, packet.time);
+				break;
 			default: this.handlePacket(packet);
 		}
 	}
-	send(packet: Partial<Packet>, withReply = false) {
+	send<T extends PacketBase>(packet: T, withReply = false) {
 		packet.pID = uuidv4();
 		const str = JSON.stringify(packet);
 		this.socket.send(str);
@@ -55,16 +57,18 @@ class WebSocketClient {
 			return handler.prom;
 		}
 	}
-	reply(orgPacket: Packet, replyData?: any) {
-		const reply: Partial<Responce> = {
+	reply<T extends PacketBase>(orgPacket: T, replyData?: any) {
+		const reply: Responce = {
 			event: "responce",
 			data: replyData,
 			orgPID: orgPacket.pID,
 		}
 		this.send(reply);
 	}
+	// Methods to be extended 
+	setupSocket() { }
 	handlePacket(packet: Packet) { }
 }
 export {
-	WebSocketClient
+	Client
 }

@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { Responce } from "./index";
+import { Responce } from "./server";
 declare class ReplyHandler {
     onResolve: Array<(data: any) => void>;
     onError: Array<(err: string) => void>;

@@ -1,4 +1,4 @@
-import { Responce } from "./index";
+import { Responce } from "./server";
 
 const REPLY_TIMEOUT = 5000;
 

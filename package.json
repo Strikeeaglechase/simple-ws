@@ -1,10 +1,10 @@
 {
 	"name": "strike-simple-ws",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"description": "A simple websocket framework for server and client intended to be used on smaller simpler projects",
 	"type": "module",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
+	"main": "dist/server.js",
+	"types": "dist/server.d.ts",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},

@@ -8,7 +8,7 @@ type uuidv4 = () => string;
 const PING_RATE = 5000;
 interface PacketBase {
 	event: string;
-	pID: string;
+	pID?: string;
 }
 interface Heartbeat extends PacketBase {
 	event: "heartbeat"
@@ -66,7 +66,7 @@ class Client {
 				const packet: Packet = JSON.parse(data.toString());
 				this._handlePacket(packet);
 			} catch (e) {
-				console.log(`Unable to parse packet ${data} - ${e}`);
+				this.server.log.logger(`Unable to parse packet ${data} - ${e}`);
 			}
 		});
 		this.socket.on("close", () => this.server.close(this.id));
@@ -84,10 +84,10 @@ class Client {
 	async sendPing() {
 		if (this.ping.isAwaitingReply) return;
 		this.ping.isAwaitingReply = true;
-
-		const time: number = await this.send({ event: 'heartbeat', time: Date.now() }, true).catch(() => { });
+		const message: Heartbeat = { event: 'heartbeat', time: Date.now() };
+		const time: number = await this.send(message, true).catch(() => { });
 		if (!time) {
-			console.log(`Client ${this.id} timed out`);
+			this.server.log.logger(`Client ${this.id} timed out`);
 			this.server.close(this.id);
 			return;
 		}
@@ -97,7 +97,7 @@ class Client {
 		this.ping.isAwaitingReply = false;
 
 	}
-	send(packet: Partial<Packet>, withReply = false) {
+	send<T extends PacketBase>(packet: T, withReply = false) {
 		packet.pID = uuidv4();
 		const str = JSON.stringify(packet);
 		this.socket.send(str);
@@ -108,6 +108,17 @@ class Client {
 			return handler.prom;
 		}
 	}
+	reply<T extends PacketBase>(orgPacket: T, replyData?: any) {
+		const reply: Responce = {
+			event: "responce",
+			data: replyData,
+			orgPID: orgPacket.pID,
+		}
+		this.send(reply);
+	}
+	broadcast<T extends PacketBase>(packet: T, withReply = false) {
+		this.server.broadcast(this.id, packet, withReply);
+	}
 	// Methods intended to be overriden by an extended class
 	setupSocket() { }
 	handlePacket(packet: Packet) { }
@@ -116,29 +127,33 @@ interface LogConfig {
 	path: string;
 	file: fs.WriteStream;
 	enabled: boolean;
+	logger: (message: string) => void;
+}
+interface LogOpts {
+	path?: string;
+	logger?: (message: string) => void
 }
 class Server<T extends Client> {
 	port: number;
 	wss: WebSocket.Server;
 	ClientConstruct: new (server: Server<T>, socket: WebSocket) => T;
 	clients: Client[];
-	log: {
-		path: string;
-		file: fs.WriteStream;
-		enabled: boolean;
-	}
-	constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, packetLog?: string) {
+	log: LogConfig;
+	constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, logOpts?: LogOpts) {
 		this.port = port;
 		this.clients = [];
 		this.ClientConstruct = ClientConstruct;
-		this.log = this.setupPacketLogger(packetLog);
+		this.log = this.setupPacketLogger(logOpts || {});
 	}
-	setupPacketLogger(path: string): LogConfig {
+	setupPacketLogger(opts: LogOpts): LogConfig {
+		const logFunc = opts.logger || console.log;
+		const path = opts.path;
 		if (!path) {
 			return {
 				path: "",
 				file: null,
-				enabled: false
+				enabled: false,
+				logger: logFunc
 			}
 		}
 		if (!fs.existsSync(path)) {
@@ -148,15 +163,16 @@ class Server<T extends Client> {
 		return {
 			path: path,
 			file: file,
-			enabled: true
+			enabled: true,
+			logger: logFunc
 		}
 	}
 	init() {
 		this.wss = new WebSocket.Server({ port: this.port });
 		this.wss.on("connection", (ws) => this.makeConnection(ws));
-		this.wss.on("error", (err) => console.log(err));
-		this.wss.on("close", () => console.log(`Websocket server closed!`));
-		this.wss.on("listening", () => console.log(`Webscoket server open on ${this.port}`));
+		this.wss.on("error", (err) => this.log.logger(err.toString()));
+		this.wss.on("close", () => this.log.logger(`Websocket server closed!`));
+		this.wss.on("listening", () => this.log.logger(`Webscoket server open on ${this.port}`));
 	}
 	makeConnection(ws: WebSocket) {
 		const client = new this.ClientConstruct(this, ws);
@@ -180,10 +196,23 @@ class Server<T extends Client> {
 		}
 		this.clients = this.clients.filter(c => c.id != clientID);
 	}
+	broadcast<T extends PacketBase>(clientID: string, packet: T, withReply: boolean) {
+		if (!withReply) {
+			this.clients.forEach(client => {
+				if (client.id != clientID) client.send(packet, false);
+			});
+		} else {
+			const replyProms = this.clients.map(client => {
+				if (client.id != clientID) return client.send(packet, true);
+			});
+			return replyProms.filter(v => v != null);
+		}
+	}
 }
 
 export {
 	Server,
+	Client,
 	Packet,
 	PacketBase,
 	Heartbeat,

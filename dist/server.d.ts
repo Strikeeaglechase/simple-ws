@@ -4,7 +4,7 @@ import ReplyHandler from "./replyHandler.js";
 import fs from "fs";
 interface PacketBase {
     event: string;
-    pID: string;
+    pID?: string;
 }
 interface Heartbeat extends PacketBase {
     event: "heartbeat";
@@ -29,7 +29,9 @@ declare class Client {
     private _setupSocket;
     private _handlePacket;
     sendPing(): Promise<void>;
-    send(packet: Partial<Packet>, withReply?: boolean): Promise<any>;
+    send<T extends PacketBase>(packet: T, withReply?: boolean): Promise<any>;
+    reply<T extends PacketBase>(orgPacket: T, replyData?: any): void;
+    broadcast<T extends PacketBase>(packet: T, withReply?: boolean): void;
     setupSocket(): void;
     handlePacket(packet: Packet): void;
 }
@@ -37,22 +39,24 @@ interface LogConfig {
     path: string;
     file: fs.WriteStream;
     enabled: boolean;
+    logger: (message: string) => void;
+}
+interface LogOpts {
+    path?: string;
+    logger?: (message: string) => void;
 }
 declare class Server<T extends Client> {
     port: number;
     wss: WebSocket.Server;
     ClientConstruct: new (server: Server<T>, socket: WebSocket) => T;
     clients: Client[];
-    log: {
-        path: string;
-        file: fs.WriteStream;
-        enabled: boolean;
-    };
-    constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, packetLog?: string);
-    setupPacketLogger(path: string): LogConfig;
+    log: LogConfig;
+    constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, logOpts?: LogOpts);
+    setupPacketLogger(opts: LogOpts): LogConfig;
     init(): void;
     makeConnection(ws: WebSocket): void;
     logOutPacket(client: Client, message: string): void;
     close(clientID: string): void;
+    broadcast<T extends PacketBase>(clientID: string, packet: T, withReply: boolean): Promise<any>[];
 }
-export { Server, Packet, PacketBase, Heartbeat, Responce };
+export { Server, Client, Packet, PacketBase, Heartbeat, Responce };

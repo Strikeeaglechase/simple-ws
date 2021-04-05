@@ -1,16 +1,16 @@
 import ReplyHandler from "./replyHandler.js";
 import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
-class WebSocketClient {
+class Client {
     constructor(url) {
         this.url = url;
         this.awaitingReplys = [];
     }
     connect() {
         this.socket = new WebSocket(this.url);
-        this.setupSocket();
+        this._setupSocket();
     }
-    setupSocket() {
+    _setupSocket() {
         this.socket.on("close", () => {
             console.log(`Websocket closed, attempting to reopen`);
             setTimeout(() => this.connect(), 500);
@@ -27,6 +27,7 @@ class WebSocketClient {
                 console.log(`Unable to parse packet ${data} - ${e}`);
             }
         });
+        this.setupSocket();
     }
     _handlePacket(packet) {
         switch (packet.event) {
@@ -35,6 +36,7 @@ class WebSocketClient {
                 break;
             case "heartbeat":
                 this.reply(packet, packet.time);
+                break;
             default: this.handlePacket(packet);
         }
     }
@@ -56,6 +58,8 @@ class WebSocketClient {
         };
         this.send(reply);
     }
+    // Methods to be extended 
+    setupSocket() { }
     handlePacket(packet) { }
 }
-export { WebSocketClient };
+export { Client };
