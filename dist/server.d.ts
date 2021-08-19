@@ -25,10 +25,10 @@ declare class Client {
     };
     awaitingReplys: Array<ReplyHandler>;
     id: string;
-    constructor(server: Server<Client>, socket: WebSocket);
+    constructor(server: Server<Client>, socket: WebSocket, _?: any);
     private _setupSocket;
     private _handlePacket;
-    sendPing(): Promise<void>;
+    private sendPing;
     send<T extends PacketBase>(packet: T, withReply?: boolean): Promise<any>;
     reply<T extends PacketBase>(orgPacket: T, replyData?: any): void;
     broadcast<T extends PacketBase>(packet: T, withReply?: boolean): void;
@@ -45,16 +45,18 @@ interface LogOpts {
     path?: string;
     logger?: (message: string) => void;
 }
+declare type ClientConstructor<T extends Client> = new (server: Server<T>, socket: WebSocket, obj?: Object) => T;
 declare class Server<T extends Client> {
-    port: number;
-    wss: WebSocket.Server;
-    ClientConstruct: new (server: Server<T>, socket: WebSocket) => T;
+    private port;
+    private wss;
+    private ClientConstruct;
     clients: Client[];
     log: LogConfig;
-    constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, logOpts?: LogOpts);
-    setupPacketLogger(opts: LogOpts): LogConfig;
+    private constructObj;
+    constructor(port: number, ClientConstruct: ClientConstructor<T>, constructObj?: Object, logOpts?: LogOpts);
+    private setupPacketLogger;
     init(): void;
-    makeConnection(ws: WebSocket): void;
+    private makeConnection;
     logOutPacket(client: Client, message: string): void;
     close(clientID: string): void;
     broadcast<T extends PacketBase>(clientID: string, packet: T, withReply: boolean): Promise<any>[];

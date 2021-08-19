@@ -29,7 +29,7 @@ function getDateHeader() {
     return t;
 }
 class Client {
-    constructor(server, socket) {
+    constructor(server, socket, _ = null) {
         this.server = server;
         this.socket = socket;
         this.ping = {
@@ -106,10 +106,11 @@ class Client {
     handlePacket(packet) { }
 }
 class Server {
-    constructor(port, ClientConstruct, logOpts) {
+    constructor(port, ClientConstruct, constructObj, logOpts) {
         this.port = port;
         this.clients = [];
         this.ClientConstruct = ClientConstruct;
+        this.constructObj = constructObj;
         this.log = this.setupPacketLogger(logOpts || {});
     }
     setupPacketLogger(opts) {
@@ -142,7 +143,7 @@ class Server {
         this.wss.on("listening", () => this.log.logger(`Webscoket server open on ${this.port}`));
     }
     makeConnection(ws) {
-        const client = new this.ClientConstruct(this, ws);
+        const client = new this.ClientConstruct(this, ws, this.constructObj);
         this.clients.push(client);
         if (this.log.enabled) {
             client.socket.on("message", (message) => {

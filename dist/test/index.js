@@ -10,8 +10,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { Server, Client as ServerClient } from "../server.js";
 import { Client } from "../client.js";
 class ServerUser extends ServerClient {
-    constructor(server, socket) {
+    constructor(server, socket, app) {
         super(server, socket);
+        console.log(app);
     }
     handlePacket(packet) {
         switch (packet.event) {
@@ -36,7 +37,7 @@ class ClientUser extends Client {
         console.log(`${this.name} - ${JSON.stringify(packet)}`);
     }
 }
-const server = new Server(8000, ServerUser, {
+const server = new Server(8000, ServerUser, { test: 5 }, {
     path: "./packets.txt"
 });
 server.init();

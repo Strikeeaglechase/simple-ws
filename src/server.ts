@@ -49,7 +49,7 @@ class Client {
 	}
 	awaitingReplys: Array<ReplyHandler>;
 	id: string;
-	constructor(server: Server<Client>, socket: WebSocket) {
+	constructor(server: Server<Client>, socket: WebSocket, _ = null) {
 		this.server = server;
 		this.socket = socket;
 		this.ping = {
@@ -81,7 +81,7 @@ class Client {
 			default: this.handlePacket(packet);
 		}
 	}
-	async sendPing() {
+	private async sendPing() {
 		if (this.ping.isAwaitingReply) return;
 		this.ping.isAwaitingReply = true;
 		const message: Heartbeat = { event: 'heartbeat', time: Date.now() };
@@ -97,7 +97,7 @@ class Client {
 		this.ping.isAwaitingReply = false;
 
 	}
-	send<T extends PacketBase>(packet: T, withReply = false) {
+	public send<T extends PacketBase>(packet: T, withReply = false) {
 		packet.pID = uuidv4();
 		const str = JSON.stringify(packet);
 		this.socket.send(str);
@@ -108,7 +108,7 @@ class Client {
 			return handler.prom;
 		}
 	}
-	reply<T extends PacketBase>(orgPacket: T, replyData?: any) {
+	public reply<T extends PacketBase>(orgPacket: T, replyData?: any) {
 		const reply: Responce = {
 			event: "responce",
 			data: replyData,
@@ -116,12 +116,12 @@ class Client {
 		}
 		this.send(reply);
 	}
-	broadcast<T extends PacketBase>(packet: T, withReply = false) {
+	public broadcast<T extends PacketBase>(packet: T, withReply = false) {
 		this.server.broadcast(this.id, packet, withReply);
 	}
 	// Methods intended to be overriden by an extended class
-	setupSocket() { }
-	handlePacket(packet: Packet) { }
+	public setupSocket() { }
+	public handlePacket(packet: Packet) { }
 }
 interface LogConfig {
 	path: string;
@@ -133,19 +133,22 @@ interface LogOpts {
 	path?: string;
 	logger?: (message: string) => void
 }
+type ClientConstructor<T extends Client> = new (server: Server<T>, socket: WebSocket, obj?: Object) => T;
 class Server<T extends Client> {
-	port: number;
-	wss: WebSocket.Server;
-	ClientConstruct: new (server: Server<T>, socket: WebSocket) => T;
-	clients: Client[];
-	log: LogConfig;
-	constructor(port: number, ClientConstruct: new (server: Server<T>, socket: WebSocket) => T, logOpts?: LogOpts) {
+	private port: number;
+	private wss: WebSocket.Server;
+	private ClientConstruct: ClientConstructor<T>;
+	public clients: Client[];
+	public log: LogConfig;
+	private constructObj: Object;
+	constructor(port: number, ClientConstruct: ClientConstructor<T>, constructObj?: Object, logOpts?: LogOpts) {
 		this.port = port;
 		this.clients = [];
 		this.ClientConstruct = ClientConstruct;
+		this.constructObj = constructObj;
 		this.log = this.setupPacketLogger(logOpts || {});
 	}
-	setupPacketLogger(opts: LogOpts): LogConfig {
+	private setupPacketLogger(opts: LogOpts): LogConfig {
 		const logFunc = opts.logger || console.log;
 		const path = opts.path;
 		if (!path) {
@@ -167,15 +170,15 @@ class Server<T extends Client> {
 			logger: logFunc
 		}
 	}
-	init() {
+	public init() {
 		this.wss = new WebSocket.Server({ port: this.port });
 		this.wss.on("connection", (ws) => this.makeConnection(ws));
 		this.wss.on("error", (err) => this.log.logger(err.toString()));
 		this.wss.on("close", () => this.log.logger(`Websocket server closed!`));
 		this.wss.on("listening", () => this.log.logger(`Webscoket server open on ${this.port}`));
 	}
-	makeConnection(ws: WebSocket) {
-		const client = new this.ClientConstruct(this, ws);
+	private makeConnection(ws: WebSocket) {
+		const client = new this.ClientConstruct(this, ws, this.constructObj);
 		this.clients.push(client);
 		if (this.log.enabled) {
 			client.socket.on("message", (message) => {
@@ -183,12 +186,12 @@ class Server<T extends Client> {
 			});
 		}
 	}
-	logOutPacket(client: Client, message: string) {
+	public logOutPacket(client: Client, message: string) {
 		if (this.log.enabled) {
 			this.log.file.write(`[OUT]${getDateHeader()} (${client.id}) ${message}\n`)
 		}
 	}
-	close(clientID: string) {
+	public close(clientID: string) {
 		const client = this.clients.find(c => c.id == clientID);
 		if (!client) return;
 		if (client.socket.readyState == WebSocket.OPEN) {
@@ -196,7 +199,7 @@ class Server<T extends Client> {
 		}
 		this.clients = this.clients.filter(c => c.id != clientID);
 	}
-	broadcast<T extends PacketBase>(clientID: string, packet: T, withReply: boolean) {
+	public broadcast<T extends PacketBase>(clientID: string, packet: T, withReply: boolean) {
 		if (!withReply) {
 			this.clients.forEach(client => {
 				if (client.id != clientID) client.send(packet, false);

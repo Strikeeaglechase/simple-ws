@@ -8,8 +8,9 @@ interface EchoPacket extends PacketBase {
 }
 type Packet = EchoPacket | BasePackets;
 class ServerUser extends ServerClient {
-	constructor(server: Server<ServerUser>, socket: WebSocket) {
+	constructor(server: Server<ServerUser>, socket: WebSocket, app: { test: number }) {
 		super(server, socket);
+		console.log(app);
 	}
 	handlePacket(packet: Packet) {
 		switch (packet.event) {
@@ -35,7 +36,7 @@ class ClientUser extends Client {
 		console.log(`${this.name} - ${JSON.stringify(packet)}`);
 	}
 }
-const server = new Server(8000, ServerUser, {
+const server = new Server(8000, ServerUser, { test: 5 }, {
 	path: "./packets.txt"
 });
 server.init();
